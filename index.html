@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Picker from Image</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="controls">
+                <button id="loadImagesBtn" class="btn btn-primary">Load Images</button>
+                <button id="loadCSVBtn" class="btn">Import CSV</button>
+                <button id="exportCSVBtn" class="btn btn-success">Export CSV</button>
+                <button id="clearColorsBtn" class="btn btn-danger">Clear Colors</button>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="table-panel" id="tablePanel">
+                <div class="table-header">
+                    <h3>Color Table</h3>
+                    <div class="table-controls">
+                        <span id="colorCount" class="color-count">0 colors</span>
+                        <button id="toggleCollapseBtn" class="btn btn-small">Collapse</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="colorTable">
+                        <thead>
+                            <tr id="tableHeaderFull" class="table-header-full">
+                                <th>Factory #</th>
+                                <th>Color Name</th>
+                                <th>Color Group</th>
+                                <th>Hex Value</th>
+                                <th>Preview</th>
+                            </tr>
+                            <tr id="tableHeaderCollapsed" class="table-header-collapsed" style="display:none;">
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Color</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="image-panel">
+                <div class="image-navigation">
+                    <button id="prevImageBtn" class="nav-btn" disabled>←</button>
+                    <span id="imageIndicator">No images</span>
+                    <button id="nextImageBtn" class="nav-btn" disabled>→</button>
+                </div>
+                <div id="imageContainer" class="image-container">
+                    <div class="empty-state">
+                        <p>Click "Load Images" to select image files</p>
+                    </div>
+                    <canvas id="imageCanvas" style="display:none;"></canvas>
+                    <div id="magnifier" class="magnifier" style="display:none;">
+                        <canvas id="magnifierCanvas"></canvas>
+                        <div class="color-info">
+                            <div class="color-swatch"></div>
+                            <span class="color-hex">#000000</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="zoom-controls">
+                    <button id="zoomOutBtn" class="btn btn-small">-</button>
+                    <span id="zoomLevel">100%</span>
+                    <button id="zoomInBtn" class="btn btn-small">+</button>
+                    <button id="zoomResetBtn" class="btn btn-small">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusBar" class="status-bar">
+            Ready to load CSV and images
+        </div>
+    </div>
+
+    <input type="file" id="imageInput" accept="image/*" multiple style="display:none;">
+    <input type="file" id="csvInput" accept=".csv" style="display:none;">
+
+    <script src="app.js"></script>
+</body>
+</html>
