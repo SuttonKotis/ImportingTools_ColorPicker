@@ -19,8 +19,11 @@ class ColorPicker {
         this.scale = 1;
         this.minScale = 0.1;
         this.maxScale = 5;
-        this.offsetX = 0;
-        this.offsetY = 0;
+
+        // screen-space translation (CSS pixels, not scaled units)
+        this.tx = 0;
+        this.ty = 0;
+
         this.isPanning = false;
         this.panStartX = 0;
         this.panStartY = 0;
@@ -151,59 +154,43 @@ class ColorPicker {
 
         const canvas = this.imageCanvas;
         const ctx = this.ctx;
+        const img = this.originalImage;
 
-        // Clear canvas
+        // reset to identity before clearing
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Save context state
-        ctx.save();
+        // single transform: scale, then translate in screen pixels
+        ctx.setTransform(this.scale, 0, 0, this.scale, this.tx, this.ty);
 
-        // Apply transformations
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.scale(this.scale, this.scale);
-        ctx.translate(-canvas.width / 2, -canvas.height / 2);
-        ctx.translate(this.offsetX, this.offsetY);
-
-        // Draw image centered
-        const imgWidth = this.originalImage.width;
-        const imgHeight = this.originalImage.height;
-
-        const x = (canvas.width - imgWidth) / 2;
-        const y = (canvas.height - imgHeight) / 2;
-
-        ctx.drawImage(this.originalImage, x, y, imgWidth, imgHeight);
-
-        // Restore context state
-        ctx.restore();
+        // draw image at (0,0); centering comes from tx/ty
+        ctx.drawImage(img, 0, 0, img.width, img.height);
     }
 
     handleWheel(e) {
         e.preventDefault();
 
         const rect = this.imageCanvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
+        const mouseX = e.clientX - rect.left; // canvas-space (screen pixels)
         const mouseY = e.clientY - rect.top;
 
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = Math.min(Math.max(this.scale * delta, this.minScale), this.maxScale);
+        const factor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newScale = Math.min(Math.max(this.scale * factor, this.minScale), this.maxScale);
+        if (newScale === this.scale) return;
 
-        if (newScale !== this.scale) {
-            // Calculate zoom point
-            const zoomPointX = (mouseX - this.imageCanvas.width / 2) / this.scale;
-            const zoomPointY = (mouseY - this.imageCanvas.height / 2) / this.scale;
+        // image coords under cursor BEFORE zoom
+        const ix = (mouseX - this.tx) / this.scale;
+        const iy = (mouseY - this.ty) / this.scale;
 
-            this.scale = newScale;
+        // apply new scale
+        this.scale = newScale;
 
-            // Adjust offset to zoom towards mouse position
-            const newZoomPointX = (mouseX - this.imageCanvas.width / 2) / this.scale;
-            const newZoomPointY = (mouseY - this.imageCanvas.height / 2) / this.scale;
+        // keep (ix, iy) under the cursor AFTER zoom
+        this.tx = mouseX - ix * this.scale;
+        this.ty = mouseY - iy * this.scale;
 
-            this.offsetX += (newZoomPointX - zoomPointX) * this.scale;
-            this.offsetY += (newZoomPointY - zoomPointY) * this.scale;
-
-            this.render();
-            this.updateZoomLevel();
-        }
+        this.render();
+        this.updateZoomLevel();
     }
 
     handleMouseDown(e) {
@@ -225,11 +212,12 @@ class ColorPicker {
 
     handleMouseMove(e) {
         if (this.isPanning) {
-            const deltaX = e.clientX - this.panStartX;
-            const deltaY = e.clientY - this.panStartY;
+            const dx = e.clientX - this.panStartX;
+            const dy = e.clientY - this.panStartY;
 
-            this.offsetX += deltaX;
-            this.offsetY += deltaY;
+            // pan in screen space
+            this.tx += dx;
+            this.ty += dy;
 
             this.panStartX = e.clientX;
             this.panStartY = e.clientY;
@@ -238,6 +226,7 @@ class ColorPicker {
             return;
         }
 
+        // Picking/magnifier path
         if (!this.originalImage || !this.pickingMode) {
             this.hideMagnifier();
             return;
@@ -247,7 +236,6 @@ class ColorPicker {
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
 
-        // Transform canvas coordinates to image coordinates
         const imgCoords = this.canvasToImageCoords(canvasX, canvasY);
 
         if (imgCoords.x >= 0 && imgCoords.x < this.originalImage.width &&
@@ -260,32 +248,9 @@ class ColorPicker {
     }
 
     canvasToImageCoords(canvasX, canvasY) {
-        const canvas = this.imageCanvas;
-
-        // Reverse the transformations
-        let x = canvasX;
-        let y = canvasY;
-
-        // Remove offset
-        x -= this.offsetX;
-        y -= this.offsetY;
-
-        // Remove scale from center
-        x -= canvas.width / 2;
-        y -= canvas.height / 2;
-        x /= this.scale;
-        y /= this.scale;
-        x += canvas.width / 2;
-        y += canvas.height / 2;
-
-        // Adjust for image position
-        const imgX = (canvas.width - this.originalImage.width) / 2;
-        const imgY = (canvas.height - this.originalImage.height) / 2;
-
-        x -= imgX;
-        y -= imgY;
-
-        return { x: Math.floor(x), y: Math.floor(y) };
+        const ix = (canvasX - this.tx) / this.scale;
+        const iy = (canvasY - this.ty) / this.scale;
+        return { x: Math.floor(ix), y: Math.floor(iy) };
     }
 
     showMagnifier(imgX, imgY, clientX, clientY) {
@@ -486,21 +451,39 @@ class ColorPicker {
     }
 
     zoomIn() {
-        this.scale = Math.min(this.scale * 1.2, this.maxScale);
-        this.render();
-        this.updateZoomLevel();
+        this.zoomAroundPoint(this.imageCanvas.width / 2, this.imageCanvas.height / 2, 1.2);
     }
 
     zoomOut() {
-        this.scale = Math.max(this.scale * 0.8, this.minScale);
+        this.zoomAroundPoint(this.imageCanvas.width / 2, this.imageCanvas.height / 2, 1 / 1.2);
+    }
+
+    zoomAroundPoint(cx, cy, factor) {
+        const newScale = Math.min(Math.max(this.scale * factor, this.minScale), this.maxScale);
+        if (newScale === this.scale) return;
+
+        const ix = (cx - this.tx) / this.scale;
+        const iy = (cy - this.ty) / this.scale;
+
+        this.scale = newScale;
+        this.tx = cx - ix * this.scale;
+        this.ty = cy - iy * this.scale;
+
         this.render();
         this.updateZoomLevel();
     }
 
     resetZoom() {
         this.scale = 1;
-        this.offsetX = 0;
-        this.offsetY = 0;
+
+        const c = this.imageCanvas;
+        const img = this.originalImage;
+        if (!img) return;
+
+        // center the image on screen
+        this.tx = (c.width  - img.width)  / 2;
+        this.ty = (c.height - img.height) / 2;
+
         this.render();
         this.updateZoomLevel();
     }
