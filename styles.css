@@ -422,6 +422,54 @@ td {
     white-space: nowrap;
 }
 
+/* Editable cells styling */
+.editable-cell {
+    position: relative;
+    cursor: text;
+}
+
+.editable-cell:hover {
+    background: #f8f9fa;
+    outline: 1px solid #e0e0e0;
+}
+
+.editable-cell:hover::after {
+    content: '\270E';
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #95a5a6;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+/* Picker cells styling */
+.picker-cell {
+    cursor: pointer !important;
+}
+
+.picker-cell:hover {
+    background: #e8f4f8;
+}
+
+/* Input field when editing */
+.cell-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 2px solid #3498db;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.cell-input:focus {
+    outline: none;
+    border-color: #2980b9;
+}
+
 
 .status-bar {
     background: #34495e;

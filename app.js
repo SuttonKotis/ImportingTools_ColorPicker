@@ -540,9 +540,9 @@ class ColorPicker {
             if (this.isCollapsed) {
                 // Collapsed view - only essential columns
                 tr.innerHTML = `
-                    <td class="factory-number">${color['FACTORY NUMBER'] || ''}</td>
-                    <td class="color-name">${color['COLOR NAME'] || ''}</td>
-                    <td class="preview-cell">
+                    <td class="factory-number editable-cell">${color['FACTORY NUMBER'] || ''}</td>
+                    <td class="color-name editable-cell">${color['COLOR NAME'] || ''}</td>
+                    <td class="preview-cell picker-cell">
                         ${color['HEX VALUE'] ?
                             `<div class="color-preview" style="background-color: ${color['HEX VALUE']}"></div>
                              <span class="hex-value-small">${color['HEX VALUE']}</span>` :
@@ -552,25 +552,115 @@ class ColorPicker {
             } else {
                 // Full view - all columns
                 tr.innerHTML = `
-                    <td class="factory-number">${color['FACTORY NUMBER'] || ''}</td>
-                    <td class="color-name">${color['COLOR NAME'] || ''}</td>
-                    <td>${color['COLOR GROUP'] || ''}</td>
-                    <td class="hex-value">${color['HEX VALUE'] || ''}</td>
-                    <td class="preview-cell">
+                    <td class="factory-number editable-cell">${color['FACTORY NUMBER'] || ''}</td>
+                    <td class="color-name editable-cell">${color['COLOR NAME'] || ''}</td>
+                    <td class="color-group editable-cell">${color['COLOR GROUP'] || ''}</td>
+                    <td class="hex-value picker-cell">${color['HEX VALUE'] || ''}</td>
+                    <td class="preview-cell picker-cell">
                         ${color['HEX VALUE'] ? `<div class="color-preview" style="background-color: ${color['HEX VALUE']}"></div>` : ''}
                     </td>
                 `;
             }
 
-            // Make row clickable
-            tr.addEventListener('click', () => {
-                this.startPicking(index);
+            // Add double-click listeners for editable cells
+            const editableCells = tr.querySelectorAll('.editable-cell');
+            editableCells.forEach((cell) => {
+                cell.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    let columnKey;
+                    if (cell.classList.contains('factory-number')) {
+                        columnKey = 'FACTORY NUMBER';
+                    } else if (cell.classList.contains('color-name')) {
+                        columnKey = 'COLOR NAME';
+                    } else if (cell.classList.contains('color-group')) {
+                        columnKey = 'COLOR GROUP';
+                    }
+                    this.makeEditable(cell, index, columnKey);
+                });
+            });
+
+            // Add click listeners for picker cells (hex and preview)
+            const pickerCells = tr.querySelectorAll('.picker-cell');
+            pickerCells.forEach((cell) => {
+                cell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.startPicking(index);
+                });
+                cell.style.cursor = 'pointer';
             });
 
             tbody.appendChild(tr);
         });
 
         this.updateColorCount();
+    }
+
+    makeEditable(cell, rowIndex, columnKey) {
+        const originalValue = this.colors[rowIndex][columnKey] || '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalValue;
+        input.className = 'cell-input';
+
+        // Replace cell content with input
+        cell.innerHTML = '';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        // Save function
+        const save = () => {
+            const newValue = input.value.trim();
+            this.colors[rowIndex][columnKey] = newValue;
+            cell.textContent = newValue;
+            this.exportDataToCSV();
+        };
+
+        // Cancel function
+        const cancel = () => {
+            cell.textContent = originalValue;
+        };
+
+        // Handle Enter and Escape keys
+        const handleKeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                save();
+                cleanup();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+                cleanup();
+            }
+        };
+
+        // Handle click outside
+        const handleClickOutside = (e) => {
+            if (!cell.contains(e.target)) {
+                save();
+                cleanup();
+            }
+        };
+
+        // Cleanup function
+        const cleanup = () => {
+            input.removeEventListener('keydown', handleKeydown);
+            document.removeEventListener('click', handleClickOutside);
+        };
+
+        // Add event listeners
+        input.addEventListener('keydown', handleKeydown);
+        // Use setTimeout to prevent immediate triggering from the double-click event
+        setTimeout(() => {
+            document.addEventListener('click', handleClickOutside);
+        }, 0);
+    }
+
+    exportDataToCSV() {
+        // This is called automatically after each edit to save the data
+        // We don't actually export to file, just keep the data in memory
+        // The user can manually export using the Export CSV button
+        // This placeholder could be used to auto-save if needed in the future
     }
 
     updateTableTitle() {
